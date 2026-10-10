@@ -6,5 +6,5 @@
     - "https://baseurl.com"
   vendor_any:
     - "optional list of watched vendor phrases"
-  title_any:
+  phrase_any:
     - "optional title phrases, matching regardless of vendor"

@@ -21,8 +21,8 @@ Configuration is read from `./config.yml` and follows the following format:
     - "https://baseurl.com"
   vendor_any:
     - "optional list of watched vendor phrases"
-  title_any:
-    - "optional title phrases, matching regardless of vendor"
+  phrase_any:
+    - "optional phrases, matching title, handle, tags regardless of vendor"
   allowed_sizes:
     - L
     - XL
@@ -34,8 +34,8 @@ Configuration is read from `./config.yml` and follows the following format:
 - `description` (`string`, optional): not surfaced anywhere, just organizational recommendation
 - `catalogues` (`list[string]`): list of shopify base URLs to track
 - `vendor_any` (`list[string]`, optional): vendors matching any of the phrases in this list will be tracked
-- `title_any` (`list[string]`, optional): product titles matching any of the phrases in this list will be tracked
-- either `vendor_any` or `title_any` are required, else nothing will be tracked
+- `phrase_any` (`list[string]`, optional): product titles matching any of the phrases in this list will be tracked
+- either `vendor_any` or `phrase_any` are required, else nothing will be tracked
 - `allowed_sizes` (`list[string]`, optional): merchandise sizes that should be logged, ignores all other size variants (determined by size options being available on the produc)
 
 > [!IMPORTANT]

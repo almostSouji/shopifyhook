@@ -41,13 +41,17 @@ export async function postOrEditItem(
   };
   try {
     if (messageId) {
-      const url = `/${hookBase}/messages/${messageId}?with_components=true` as `/${string}`;
+      const url =
+        `/${hookBase}/messages/${messageId}?with_components=true` as `/${string}`;
       return (await rest.patch(url, { body, auth: false })) as APIMessage;
     }
   } catch (_err) {
     const error = _err as Error;
     if (!("status" in error && error.status === 404)) {
-      logger.error(error, "Non-404 error when trying to retrieve a webhook message");
+      logger.error(
+        error,
+        "Non-404 error when trying to retrieve a webhook message",
+      );
       throw error;
     }
   }
@@ -81,14 +85,22 @@ export async function loadConfig(path: string) {
 }
 
 const KEY_SEPARATOR = "|" as const;
-export function recordKey(shopBase: string, productId: number, variantId: number) {
+export function recordKey(
+  shopBase: string,
+  productId: number,
+  variantId: number,
+) {
   return [shopBase, productId, variantId].join(KEY_SEPARATOR);
 }
 
-async function fetchProductPage(baseLink: string, pageSize: number, page: number) {
-  const res = await fetch(`${baseLink}/products.json?limit=${pageSize}&page=${page}`).then((r) =>
-    r.json(),
-  );
+async function fetchProductPage(
+  baseLink: string,
+  pageSize: number,
+  page: number,
+) {
+  const res = await fetch(
+    `${baseLink}/products.json?limit=${pageSize}&page=${page}`,
+  ).then((r) => r.json());
   const products = ShopifyResult.parse(res).products;
   const productMap = new Map<number, z.output<typeof ShopifyProduct>>();
 
@@ -119,38 +131,56 @@ export function filterRelevantVariants(
   webhookId: string,
   shopBase: string,
   {
-    title_any: titleAny,
+    phrase_any: titleAny,
     vendor_any: vendorAny,
     allowed_sizes: allowedSizes,
   }: {
-    title_any?: string[];
+    phrase_any?: string[];
     vendor_any?: string[];
     allowed_sizes?: string[];
   },
 ) {
-  const relevant = new Map<string, z.output<typeof PreparedProductVariantRecord>>();
-  logger.debug({ titleAny, vendorAny }, `Filtering ${shopBase} for ${webhookId}`);
-  const lowerAllowedSizes = allowedSizes?.map((size) => size.toLowerCase()) ?? [];
+  const relevant = new Map<
+    string,
+    z.output<typeof PreparedProductVariantRecord>
+  >();
+  logger.debug(
+    { titleAny, vendorAny },
+    `Filtering ${shopBase} for ${webhookId}`,
+  );
+  const lowerAllowedSizes =
+    allowedSizes?.map((size) => size.toLowerCase()) ?? [];
 
   for (const product of products.values()) {
-    const productSizes = product.options?.find((option) => option.name.toLowerCase() === "size");
+    const productSizes = product.options?.find(
+      (option) => option.name.toLowerCase() === "size",
+    );
 
     const lowerTitle = product.title.toLowerCase();
+    const lowerTags = product.tags?.map((tag) => tag.toLowerCase()) ?? [];
     const lowerVendor = product.vendor.toLowerCase();
 
-    const titleAnyConditionMet = titleAny?.some((phrase) =>
-      lowerTitle.includes(phrase.toLowerCase()),
-    );
+    const phraseAnyConditionMet = titleAny?.some((phrase) => {
+      const lowerPhrase = phrase.toLowerCase();
+      return (
+        lowerTitle.includes(lowerPhrase) ||
+        lowerTags.some((tag) => tag.includes(lowerPhrase)) ||
+        product.handle.split("-").some((handle) => handle.includes(lowerPhrase))
+      );
+    });
+
     const vendorAnyConditionMet = vendorAny?.some((phrase) =>
       lowerVendor.includes(phrase.toLowerCase()),
     );
 
-    if (titleAnyConditionMet || vendorAnyConditionMet) {
+    if (phraseAnyConditionMet || vendorAnyConditionMet) {
       for (const variant of product.variants) {
         if (productSizes) {
-          const variantSize = [variant.option1, variant.option2, variant.option3].find(
-            (option) => option && productSizes.values.includes(option),
-          );
+          const variantSize = [
+            variant.option1,
+            variant.option2,
+            variant.option3,
+          ].find((option) => option && productSizes.values.includes(option));
 
           if (variantSize) {
             const lowerSize = variantSize.toLowerCase();
@@ -162,11 +192,15 @@ export function filterRelevantVariants(
 
         const key = recordKey(shopBase, product.id, variant.id);
         const name =
-          variant.title === "Default Title" ? product.title : `${product.title} - ${variant.title}`;
+          variant.title === "Default Title"
+            ? product.title
+            : `${product.title} - ${variant.title}`;
         const image = variant.featured_image?.src ?? product.images?.[0]?.src;
 
         const variantCreatedAt = new Date(variant.created_at);
-        const variantUpdatedAt = variant.updated_at ? new Date(variant.updated_at) : undefined;
+        const variantUpdatedAt = variant.updated_at
+          ? new Date(variant.updated_at)
+          : undefined;
 
         relevant.set(key, {
           key,
@@ -190,8 +224,13 @@ export function filterRelevantVariants(
   return relevant;
 }
 
-export async function saveRecords(variants: ProductVariantWithIdMap, hookId: string) {
-  const path = fileURLToPath(new URL(`../records/${hookId}.json`, import.meta.url));
+export async function saveRecords(
+  variants: ProductVariantWithIdMap,
+  hookId: string,
+) {
+  const path = fileURLToPath(
+    new URL(`../records/${hookId}.json`, import.meta.url),
+  );
   const stringVariants = JSON.stringify(
     Array.from(variants.values()).map((variant) => ({ ...variant, hookId })),
   );
@@ -200,10 +239,17 @@ export async function saveRecords(variants: ProductVariantWithIdMap, hookId: str
 }
 
 export async function loadRecords(hookId: string) {
-  const map = new Map<string, z.output<typeof ProductVariantRecordWithMessageId>>();
+  const map = new Map<
+    string,
+    z.output<typeof ProductVariantRecordWithMessageId>
+  >();
   try {
-    const res = await readFile(new URL(`../records/${hookId}.json`, import.meta.url));
-    const records = ProductVariantRecordsWithMessageId.parse(JSON.parse(res.toString()));
+    const res = await readFile(
+      new URL(`../records/${hookId}.json`, import.meta.url),
+    );
+    const records = ProductVariantRecordsWithMessageId.parse(
+      JSON.parse(res.toString()),
+    );
 
     for (const record of records) {
       map.set(record.key, record);
@@ -240,33 +286,35 @@ export function processVariantVersions(
   ];
 
   if (newestVersion.updatedTimestamp) {
-    detailLines.push(`Updated: ${formatDiscordTimestamp(newestVersion.updatedTimestamp)}`);
+    detailLines.push(
+      `Updated: ${formatDiscordTimestamp(newestVersion.updatedTimestamp)}`,
+    );
   }
 
   const display = newestVersion.image
     ? ({
-        type: ComponentType.Section,
-        components: [
-          {
-            type: ComponentType.TextDisplay,
-            content: `### ${newestVersion.name}`,
-          },
-          {
-            type: ComponentType.TextDisplay,
-            content: detailLines.join("\n"),
-          },
-        ],
-        accessory: {
-          type: ComponentType.Thumbnail,
-          media: {
-            url: newestVersion.image,
-          },
+      type: ComponentType.Section,
+      components: [
+        {
+          type: ComponentType.TextDisplay,
+          content: `### ${newestVersion.name}`,
         },
-      } satisfies APISectionComponent)
+        {
+          type: ComponentType.TextDisplay,
+          content: detailLines.join("\n"),
+        },
+      ],
+      accessory: {
+        type: ComponentType.Thumbnail,
+        media: {
+          url: newestVersion.image,
+        },
+      },
+    } satisfies APISectionComponent)
     : ({
-        type: ComponentType.TextDisplay,
-        content: [`### ${newestVersion.name}`, ...detailLines].join("\n"),
-      } satisfies APITextDisplayComponent);
+      type: ComponentType.TextDisplay,
+      content: [`### ${newestVersion.name}`, ...detailLines].join("\n"),
+    } satisfies APITextDisplayComponent);
 
   return {
     productVariantLink: `[${newestVersion.name}](<${linkBaseUrl}/products/${newestVersion.handle}?variant=${newestVersion.variantId}>)`,
@@ -291,18 +339,22 @@ export function processVariantVersions(
       } satisfies APIContainerComponent,
     ],
     priceChange:
-      productBefore && productAfter && productBefore.price !== productAfter.price
+      productBefore &&
+        productAfter &&
+        productBefore.price !== productAfter.price
         ? {
-            before: productBefore.price,
-            after: productAfter.price,
-          }
+          before: productBefore.price,
+          after: productAfter.price,
+        }
         : null,
     availableChange:
-      productBefore && productAfter && productBefore.available !== productAfter.available
+      productBefore &&
+        productAfter &&
+        productBefore.available !== productAfter.available
         ? {
-            before: Boolean(productBefore.available),
-            after: Boolean(productAfter.available),
-          }
+          before: Boolean(productBefore.available),
+          after: Boolean(productAfter.available),
+        }
         : null,
   };
 }
